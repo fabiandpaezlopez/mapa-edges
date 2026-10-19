@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa de Edges Kia</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface: #fcfcfb;
+    --surface-2: #f2f1ee;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #8a8984;
+    --grid: #e3e2de;
+    --axis: #b9b8b2;
+    --kia: #2a78d6;
+    --other: #c9c8c2;
+    --other-stroke: #a9a8a2;
+    --tip-bg: #ffffff;
+    --tip-border: #d9d8d3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface: #1a1a19;
+      --surface-2: #242423;
+      --text-primary: #f0efec;
+      --text-secondary: #c3c2b7;
+      --text-muted: #8f8e88;
+      --grid: #2e2e2c;
+      --axis: #55544f;
+      --kia: #3987e5;
+      --other: #4a4a46;
+      --other-stroke: #6a6964;
+      --tip-bg: #262625;
+      --tip-border: #3a3a37;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface: #1a1a19;
+    --surface-2: #242423;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e88;
+    --grid: #2e2e2c;
+    --axis: #55544f;
+    --kia: #3987e5;
+    --other: #4a4a46;
+    --other-stroke: #6a6964;
+    --tip-bg: #262625;
+    --tip-border: #3a3a37;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: var(--surface);
+    color: var(--text-primary);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 18px; margin: 0 0 4px; font-weight: 600; }
+  .sub { color: var(--text-secondary); margin: 0 0 14px; font-size: 13px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 10px; }
+  .seg { display: inline-flex; border: 1px solid var(--tip-border); border-radius: 8px; overflow: hidden; }
+  .seg button {
+    font: inherit; font-size: 13px; padding: 6px 12px; border: 0; cursor: pointer;
+    background: transparent; color: var(--text-secondary);
+  }
+  .seg button[aria-pressed="true"] { background: var(--surface-2); color: var(--text-primary); font-weight: 600; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--text-secondary); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend svg { width: 14px; height: 14px; }
+  .chart { position: relative; width: 100%; }
+  svg.plot { display: block; width: 100%; height: auto; touch-action: manipulation; }
+  .tick { fill: var(--text-muted); font-size: 12px; }
+  .axis-title { fill: var(--text-secondary); font-size: 13px; }
+  .quad { fill: var(--text-muted); font-size: 13px; font-weight: 600; letter-spacing: .06em; }
+  .hex { transition: opacity .15s, transform .15s; cursor: pointer; }
+  .hex:focus { outline: none; }
+  .hex:focus-visible path.shape, .hex.active path.shape { stroke: var(--text-primary); stroke-width: 2.5; }
+  .dim .hex:not(.active) { opacity: .35; }
+  .hidden { display: none; }
+  .tip {
+    position: absolute; pointer-events: none; z-index: 5;
+    max-width: 280px; padding: 10px 12px; border-radius: 8px;
+    background: var(--tip-bg); border: 1px solid var(--tip-border);
+    box-shadow: 0 4px 16px rgba(0,0,0,.12);
+    opacity: 0; transform: translateY(4px); transition: opacity .12s, transform .12s;
+  }
+  .tip.show { opacity: 1; transform: translateY(0); }
+  .tip .name { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+  .tip .q { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+  .tip .def { font-size: 12.5px; color: var(--text-secondary); margin: 0 0 8px; }
+  .tip .nums { display: grid; grid-template-columns: repeat(3, auto); gap: 2px 14px; font-size: 12px; }
+  .tip .nums b { display: block; font-size: 15px; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .tip .nums span { color: var(--text-muted); }
+  .tip .kia-tag { display: inline-block; font-size: 11px; font-weight: 600; color: var(--kia); margin-left: 6px; }
+  .note { color: var(--text-muted); font-size: 12px; margin-top: 8px; }
+  details { margin-top: 14px; font-size: 13px; }
+  summary { cursor: pointer; color: var(--text-secondary); }
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--text-secondary); font-weight: 600; }
+  td.n, th.n { text-align: right; }
+  .table-scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Edges · Colombia, Auto &amp; Mobility, todas las edades (2026)</h1>
+  <p class="sub">n = 495 · Fuente: Backslash Edges AI (OAG, Q4 2025 – Q1 2026). Tamaño del hexágono = Strength (relevancia personal). Pase el cursor o toque un hexágono para ver el detalle.</p>
+
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Edges visibles">
+      <button type="button" data-filter="all" aria-pressed="true">Todos (37)</button>
+      <button type="button" data-filter="kia" aria-pressed="false">Prioritarios Kia (9)</button>
+    </div>
+    <div class="legend" aria-hidden="true">
+      <span><svg viewBox="0 0 14 14"><polygon points="7,1 12.2,4 12.2,10 7,13 1.8,10 1.8,4" fill="var(--kia)"/></svg>Prioritario para Kia</span>
+      <span><svg viewBox="0 0 14 14"><polygon points="7,1 12.2,4 12.2,10 7,13 1.8,10 1.8,4" fill="var(--other)" stroke="var(--other-stroke)"/></svg>Otros Edges</span>
+    </div>
+  </div>
+
+  <div class="chart" id="chart">
+    <svg class="plot" id="plot" viewBox="0 0 1000 620" role="img" aria-label="Mapa de Edges por Speed y Spend"></svg>
+    <div class="tip" id="tip" role="status" aria-live="polite"></div>
+  </div>
+  <p class="note">Las líneas de los cuadrantes siguen la posición que muestra el portal (Speed ≈ 94 y Spend ≈ 107,5). Índice 100 = promedio de todos los Edges.</p>
+
+  <details>
+    <summary>Ver la tabla de datos</summary>
+    <div class="table-scroll"><table id="tbl"><thead><tr><th>Edge</th><th>Cuadrante</th><th class="n">Speed</th><th class="n">Spend</th><th class="n">Strength</th></tr></thead><tbody></tbody></table></div>
+  </details>
+</div>
+
+<script>
+// Datos: Edges AI, Colombia, Auto & Mobility, todas las audiencias, 2026 (n = 495)
+const KIA = new Set(["Stability Pursuit","Eco-Realism","Transparency Receipts","Digital Friction","Crisis Hacking","Circular Aftermarkets","Dark Mode","Connection Quest","Gap Collapse"]);
+const DATA = [
+  ["Rewild Resilience",109,149,111,"La naturaleza recupera su lugar; restaurar la biodiversidad se vuelve prioridad compartida."],
+  ["Transparency Receipts",106,155,104,"Compradores escépticos exigen pruebas indiscutibles del impacto de un producto."],
+  ["Eco-Realism",103,145,100,"La utopía verde se vuelve pragmática: ganan las soluciones probadas y disponibles."],
+  ["Future Utopias",103,138,103,"Urbanistas imaginan ciudades más verdes y resilientes."],
+  ["Circular Aftermarkets",98,150,97,"Crece la economía de la posventa: reparar, revender y reciclar."],
+  ["Stability Pursuit",112,107,111,"La estabilidad es escasa; la gente prefiere caminos predecibles a las apuestas de riesgo."],
+  ["Data Rush",111,108,111,"Termina la era de los datos sin reglas; los usuarios pasan a ser dueños de sus datos."],
+  ["Inclement Armor",109,112,104,"El clima extremo es normal y protegerse cambia lo que usamos."],
+  ["Zero Out",112,103,112,"Pausa colectiva frente a la sobreestimulación."],
+  ["Health Hedonism",114,97,118,"El bienestar se vuelve estilo de vida placentero y sistema de creencias."],
+  ["Demise Duality",104,117,103,"El pesimismo sobre el futuro amenaza la responsabilidad individual."],
+  ["Body Debates",114,84,118,"Las decisiones sobre el cuerpo pasan al centro del debate público."],
+  ["Awakened World",101,114,101,"La conciencia se vuelve la nueva frontera de exploración."],
+  ["Digital Friction",105,101,108,"La gente pide tecnología con límites y pausas. Hyundai y VW vuelven a los botones físicos."],
+  ["Archive Authority",102,107,103,"Exigencia de decidir qué se conserva y qué se borra de nuestra historia digital."],
+  ["Discomfort Zone",104,99,105,"Se elige el esfuerzo y el riesgo para sentirse vivo."],
+  ["Gap Collapse",101,107,102,"La desigualdad se amplía a nuevas brechas; abrir el acceso es oportunidad de mercado."],
+  ["Optimized Anatomy",111,81,114,"El cuerpo como algo que se mejora en lugar de aceptarse."],
+  ["Mood Geisting",108,88,108,"Crece el mercado de productos que modulan el estado de ánimo."],
+  ["Artificial Creativity",98,109,92,"Debate sobre quién crea y qué vale cuando la IA produce."],
+  ["Crisis Hacking",103,96,99,"En crisis permanente, la gente usa trucos de bajo costo para aprovechar los límites."],
+  ["Helicopter Tech",102,96,104,"La vigilancia de gobiernos y marcas se normaliza."],
+  ["Untourism",98,105,99,"Del turismo masivo a viajes de menor volumen y más valor."],
+  ["Maturity Paradox",99,100,100,"Edad y madurez dejan de corresponderse."],
+  ["Modern Civility",102,87,104,"Vuelven los códigos comunes que hacen posible la convivencia."],
+  ["Unglossed",101,87,111,"La autenticidad busca una forma nueva después de volverse actuación."],
+  ["Connection Quest",100,79,101,"Nuevos espacios y negocios reemplazan el encuentro cara a cara."],
+  ["Counter Cancel",94,87,99,"Cambiar el escarnio público por conversación."],
+  ["Death Undone",96,80,95,"Se rompe el tabú y se replantea el final de la vida."],
+  ["ODD-ysseys",88,99,86,"Ganas de rareza y escapismo frente al exceso de racionalidad."],
+  ["Intimate AI",84,98,77,"La IA pasa de herramienta a confidente y asistente personal."],
+  ["Neo-Collectivism",88,81,89,"Marcas y organizaciones ceden control a sus comunidades."],
+  ["Dark Mode",90,71,90,"Frente al algoritmo, se valora lo que no se copia: comunidades cerradas y recomendaciones de persona a persona."],
+  ["Roots Revival",89,61,97,"Se revaloriza la herencia local y nacional."],
+  ["Liquid Reality",82,77,73,"Se disuelve la frontera entre lo físico y lo digital."],
+  ["Sexual Liberation",85,62,81,"Nueva era de placer sin culpa."],
+  ["Lab-Made World",74,62,70,"Lo hecho en laboratorio pasa de estéril a responsable."]
+].map(([name, speed, spend, strength, def]) => ({ name, speed, spend, strength, def, kia: KIA.has(name) }));
+
+const T_SPEED = 94, T_SPEND = 107.5;
+const X = { min: 70, max: 120 }, Y = { min: 55, max: 162 };
+let W, H, M, K;
+const sx = v => M.l + (v - X.min) / (X.max - X.min) * (W - M.l - M.r);
+const sy = v => H - M.b - (v - Y.min) / (Y.max - Y.min) * (H - M.t - M.b);
+const sr = v => (8 + (v - 70) / (118 - 70) * 12) * K;
+
+function quadrant(d) {
+  const fast = d.speed >= T_SPEED, high = d.spend >= T_SPEND;
+  if (fast && high) return "Dominant";
+  if (!fast && high) return "Diverging";
+  if (fast && !high) return "Developing";
+  return "Discrete";
+}
+const QUAD_ES = { Dominant: "alto impulso y alto efecto en la compra", Diverging: "bajo impulso y alto efecto en la compra", Developing: "alto impulso y bajo efecto en la compra", Discrete: "bajo impulso y bajo efecto en la compra" };
+
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("plot");
+const el = (tag, attrs, parent) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); (parent || svg).appendChild(n); return n; };
+const hexPath = r => { let p = ""; for (let i = 0; i < 6; i++) { const a = Math.PI / 180 * (60 * i - 90); p += (i ? "L" : "M") + (r * Math.cos(a)).toFixed(2) + "," + (r * Math.sin(a)).toFixed(2); } return p + "Z"; };
+
+let nodes = [];
+function render() {
+  const cw = document.getElementById("chart").clientWidth || 1000;
+  const narrow = cw < 640;
+  W = narrow ? 420 : 1000; H = narrow ? 520 : 620; K = narrow ? 0.62 : 1;
+  M = narrow ? { l: 44, r: 10, t: 18, b: 48 } : { l: 70, r: 24, t: 24, b: 58 };
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = "";
+// Grilla y ejes
+for (let v = 70; v <= 120; v += 10) {
+  el("line", { x1: sx(v), x2: sx(v), y1: M.t, y2: H - M.b, stroke: "var(--grid)", "stroke-width": 1 });
+  el("text", { x: sx(v), y: H - M.b + 20, "text-anchor": "middle", class: "tick" }).textContent = v;
+}
+for (let v = 60; v <= 160; v += 20) {
+  el("line", { x1: M.l, x2: W - M.r, y1: sy(v), y2: sy(v), stroke: "var(--grid)", "stroke-width": 1 });
+  el("text", { x: M.l - 8, y: sy(v) + 4, "text-anchor": "end", class: "tick" }).textContent = v;
+}
+el("text", { x: (M.l + W - M.r) / 2, y: H - 12, "text-anchor": "middle", class: "axis-title" }).textContent = "Speed: impulso cultural →";
+el("text", { x: 14, y: (M.t + H - M.b) / 2, "text-anchor": "middle", class: "axis-title", transform: `rotate(-90 14 ${(M.t + H - M.b) / 2})` }).textContent = "Spend: efecto en la compra →";
+
+// Líneas de cuadrante
+el("line", { x1: sx(T_SPEED), x2: sx(T_SPEED), y1: M.t, y2: H - M.b, stroke: "var(--axis)", "stroke-width": 1.5 });
+el("line", { x1: M.l, x2: W - M.r, y1: sy(T_SPEND), y2: sy(T_SPEND), stroke: "var(--axis)", "stroke-width": 1.5 });
+[["DOMINANT", W - M.r - 8, M.t + 18, "end"], ["DIVERGING", M.l + 8, M.t + 18, "start"], ["DISCRETE", M.l + 8, H - M.b - 10, "start"], ["DEVELOPING", W - M.r - 8, H - M.b - 10, "end"]]
+  .forEach(([t, x, y, a]) => { el("text", { x, y, "text-anchor": a, class: "quad" }).textContent = t; });
+
+// Hexágonos: los grandes primero y los prioritarios encima
+const layer = el("g", {});
+const order = [...DATA].sort((a, b) => (a.kia - b.kia) || (b.strength - a.strength));
+nodes = order.map(d => {
+  const g = el("g", { class: "hex", tabindex: 0, role: "button", "aria-label": `${d.name}: Speed ${d.speed}, Spend ${d.spend}, Strength ${d.strength}`, transform: `translate(${sx(d.speed)},${sy(d.spend)})` }, layer);
+  el("circle", { r: Math.max(sr(d.strength) + 4, 14), fill: "transparent" }, g);
+  el("path", { class: "shape", d: hexPath(sr(d.strength)), fill: d.kia ? "var(--kia)" : "var(--other)", stroke: d.kia ? "var(--surface)" : "var(--other-stroke)", "stroke-width": d.kia ? 2 : 1, "fill-opacity": d.kia ? 0.92 : 0.85 }, g);
+  g.__d = d;
+  return g;
+});
+
+  const onlyKia = document.querySelector('.seg button[data-filter="kia"]').getAttribute("aria-pressed") === "true";
+  nodes.forEach(n => n.classList.toggle("hidden", onlyKia && !n.__d.kia));
+  bind();
+}
+// Tooltip
+const chart = document.getElementById("chart"), tip = document.getElementById("tip");
+let pinned = null;
+function show(g) {
+  const d = g.__d, q = quadrant(d);
+  nodes.forEach(n => n.classList.toggle("active", n === g));
+  chart.classList.add("dim");
+  tip.innerHTML = `<div class="name">${d.name}${d.kia ? '<span class="kia-tag">Prioritario Kia</span>' : ""}</div>
+    <div class="q">${q}: ${QUAD_ES[q]}</div>
+    <p class="def">${d.def}</p>
+    <div class="nums"><div><span>Speed</span><b>${d.speed}</b></div><div><span>Spend</span><b>${d.spend}</b></div><div><span>Strength</span><b>${d.strength}</b></div></div>`;
+  const cr = chart.getBoundingClientRect(), br = g.getBoundingClientRect();
+  tip.classList.add("show");
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let left = br.left - cr.left + br.width / 2 - tw / 2;
+  left = Math.max(0, Math.min(left, cr.width - tw));
+  let top = br.top - cr.top - th - 10;
+  if (top < 0) top = br.bottom - cr.top + 10;
+  tip.style.left = left + "px";
+  tip.style.top = top + "px";
+}
+function hide() {
+  if (pinned) return;
+  tip.classList.remove("show");
+  chart.classList.remove("dim");
+  nodes.forEach(n => n.classList.remove("active"));
+}
+function bind() { nodes.forEach(g => {
+  g.addEventListener("pointerenter", e => { if (e.pointerType === "mouse" && !pinned) show(g); });
+  g.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") hide(); });
+  g.addEventListener("focus", () => show(g));
+  g.addEventListener("blur", hide);
+  g.addEventListener("click", e => { e.stopPropagation(); pinned = pinned === g ? null : g; if (pinned) show(g); else hide(); });
+}); }
+document.addEventListener("click", () => { pinned = null; hide(); });
+let lastNarrow = null;
+window.addEventListener("resize", () => {
+  const narrow = document.getElementById("chart").clientWidth < 640;
+  if (narrow !== lastNarrow) { lastNarrow = narrow; pinned = null; hide(); render(); }
+  else if (pinned) show(pinned);
+});
+
+// Filtro
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  const onlyKia = b.dataset.filter === "kia";
+  nodes.forEach(n => n.classList.toggle("hidden", onlyKia && !n.__d.kia));
+  pinned = null; hide();
+}));
+
+lastNarrow = document.getElementById("chart").clientWidth < 640;
+render();
+
+// Tabla
+const tb = document.querySelector("#tbl tbody");
+[...DATA].sort((a, b) => b.spend - a.spend).forEach(d => {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${d.name}${d.kia ? " ●" : ""}</td><td>${quadrant(d)}</td><td class="n">${d.speed}</td><td class="n">${d.spend}</td><td class="n">${d.strength}</td>`;
+  tb.appendChild(tr);
+});
+</script>
+</body>
+</html>
